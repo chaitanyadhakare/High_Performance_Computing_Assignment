@@ -1,0 +1,106 @@
+%%cu
+
+#include<iostream>
+#include<cstdlib>
+#include<cmath>
+#define n 20
+
+using namespace std;
+
+__global__ void matrixMultiplication(int *a, int *b, int *c)
+{
+    int row = threadIdx.y+blockDim.y*blockIdx.y;
+    int col = threadIdx.x+blockDim.x*blockIdx.x;
+    int sum = 0;
+    //#n[col2*y+x]=n[col2*y+x]+l[col1*y+k]*m[col2*k+x];
+    c[n*row+col]=0;
+    if(row < n && col < n)
+    for(int j=0;j < n;j++)
+    {
+        c[n*row+col] = c[n*row+col] + a[n*row+j]*b[n*j+col];
+    }
+    
+   //# c[n*row+col]=sum;
+}
+
+int main(){
+    //#Multiply NxN Arrays
+  int *h_matrixA;
+  int *h_matrixB;
+  int *h_resultMatrixC;
+  
+  int *d_matrixA;
+  int *d_matrixB;
+  int *d_resultMatrixC;
+
+  h_matrixA = (int *)malloc(n*n*sizeof(int));
+  h_matrixB = (int *)malloc(n*n*sizeof(int));
+  h_resultMatrixC =  (int *)malloc(n*n*sizeof(int));
+
+  cudaMalloc((void **)&d_matrixA, n*n*sizeof(int));
+	cudaMalloc((void **)&d_matrixB, n*n*sizeof(int));
+	cudaMalloc((void **)&d_resultMatrixC, n*n*sizeof(int));
+
+  srand(time(0));
+  for(int i=0; i < n ; i++){
+     for(int j = 0; j < n ; j++){
+          h_matrixA[i*n+j] = rand() % 4 + 1;
+          h_matrixB[i*n+j] = rand() % 4 + 1;
+     }
+  }
+
+  cudaMemcpy(d_matrixA, h_matrixA, n*n*sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_matrixB, h_matrixB, n*n*sizeof(int), cudaMemcpyHostToDevice);
+
+  dim3 threadsPerBlock(n, n);
+  dim3 blocksPerGrid(1, 1);
+    
+    if(n*n>512){
+        threadsPerBlock.x=512;
+        threadsPerBlock.y=512;
+        blocksPerGrid.x=ceil((double)n/(double)threadsPerBlock.x);
+        blocksPerGrid.y=ceil((double)n/(double)threadsPerBlock.y);
+    }
+
+    matrixMultiplication <<<blocksPerGrid,threadsPerBlock>>>(d_matrixA,d_matrixB,d_resultMatrixC);
+
+    //#Copy result back to host
+	  cudaMemcpy(h_resultMatrixC, d_resultMatrixC, n*n*sizeof(int), cudaMemcpyDeviceToHost);
+
+   cout << "3. Multiplication of NxN Arrays using n^2 Processors "<<endl;
+   cout << "Matrix A: "<<endl;
+   for(int i=0; i < n ; i++){
+     cout <<"{";
+     for(int j = 0; j < n ; j++){
+          cout << h_matrixA[i*n+j]<<" ";
+     }
+    cout <<"},";
+    }
+    cout<<endl;
+    cout << "Matrix B: "<<endl;
+    for(int i=0; i < n ; i++){
+     cout <<"{";
+     for(int j = 0; j < n ; j++){
+          cout << h_matrixB[i*n+j]<<" ";
+     }
+    cout <<"},";
+    }
+    cout<<endl;
+    cout << "Result Matrix C: "<<endl;
+    for(int i=0; i < n ; i++){
+     cout <<"{";
+     for(int j = 0; j < n ; j++){
+          cout << h_resultMatrixC[i*n+j]<<" ";
+     }
+      cout <<"},";
+    }
+
+     //#cleanup
+   free(h_matrixA);
+   free(h_matrixB);
+   free(h_resultMatrixC);
+
+   cudaFree(d_matrixA);
+   cudaFree(d_matrixB);
+   cudaFree(d_resultMatrixC);
+}

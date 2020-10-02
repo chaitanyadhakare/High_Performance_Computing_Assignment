@@ -1,0 +1,67 @@
+%%cu
+
+#include<iostream>
+#include<cstdio>
+#include<cstdlib>
+#include<cuda_runtime.h>
+
+#define n (2048*2048)
+#define THREADS_PER_BLOCK 512
+
+using namespace std;
+
+__global__ void add(int *a, int *b, int *c) {
+	  int index = threadIdx.x + blockIdx.x * blockDim.x;
+    if (index < n){
+        c[index] = a[index] + b[index];
+    }
+}
+
+int main(){
+  //#Addition of two large vectors
+  cout<<"No of Elements: "<<n<<endl;
+  srand(time(0));
+	int *h_firstArr = new int[n];
+  int *h_secondArr = new int[n];
+  int *h_resultArr = new int[n];
+
+  int *d_firstArr;
+  int *d_secondArr;
+  int *d_resultArr;
+
+	for(int i=0;i<n;i++)
+	{
+		h_firstArr[i]=rand()%20000;
+		h_secondArr[i]=rand()%1000;
+	}
+
+
+	int size=n*sizeof(int);
+
+	cudaMalloc((void **)&d_firstArr, size);
+	cudaMalloc((void **)&d_secondArr, size);
+	cudaMalloc((void **)&d_resultArr, size);
+
+	//#Copy inputs to device
+	cudaMemcpy(d_firstArr, h_firstArr, size, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_secondArr, h_secondArr, size, cudaMemcpyHostToDevice);
+
+	add<<<n/THREADS_PER_BLOCK,THREADS_PER_BLOCK>>>(d_firstArr, d_secondArr, d_resultArr);
+	//#Copy result back to host
+	cudaMemcpy(h_resultArr, d_resultArr, size, cudaMemcpyDeviceToHost);
+  cout<<"1. Addition two large vectors: "<<endl;
+	for(int i=0; i<100 ;i++){
+		cout<<"{"<<i<<"}"<<h_firstArr[i]<<" + "<<h_secondArr[i]<<" = "<<h_resultArr[i]<<" ";
+	}
+
+	// Cleanup
+	free(h_firstArr); 
+	free(h_secondArr); 
+	free(h_resultArr);
+ 
+	cudaFree(d_firstArr); 
+	cudaFree(d_secondArr); 
+	cudaFree(d_resultArr);
+
+	return 0;
+}
